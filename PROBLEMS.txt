@@ -1,0 +1,31 @@
+PULSE - HANDOFF AUDIT
+Last reviewed: 2026-07-21
+
+STILL OPEN
+
+- Routing uses two requests and can partially save.
+- Support status is limited to open/resolved; there are no replies or inbound integrations.
+- Inbox filters and queue ordering are basic; there are no bulk actions or notifications.
+- Duplicate scoring is lexical, and customer merge has no preview or undo.
+- AI needs real-world evaluation, budgets, rate limits, and background triage to avoid page latency.
+- Permissions do not yet model teams or queues, and production identity management needs SSO/MFA.
+- Activity and customer history are not paginated, and deletes are hard deletes.
+- A full automated test suite, CI, monitoring, and deployment configuration are still missing.
+
+SOLVED DURING THE CHALLENGE
+
+- Corrected pagination, filtered totals, metrics, and bounded data access.
+- Replaced arbitrary seeded priority with cached OpenAI SDK classification, reasons, provenance,
+  and protected human overrides.
+- Added structured AI next-step suggestions without autonomous actions.
+- Reorganised the server and added tracked migrations, constraints, indexes, backups, and additive
+  seeding.
+- Added feedback CRUD, note edit/delete, explicit status updates, activity, categories, tags,
+  duplicate links, customer history/merge, and escalation review.
+- Added hashed passwords, revocable HttpOnly sessions, lockout/rate limiting, password reset,
+  restricted CORS, security headers, and auth audit events.
+- Added centralized manager/agent authorization enforced by the API and reflected in UI controls.
+- Added error handling, session recovery, request logs, loading states, responsive layouts, and an
+  error boundary.
+- Removed stored-XSS rendering, neutralised CSV formulas, streamed exports, and made the root build
+  validate both server and web workspaces.

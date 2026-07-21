@@ -5,8 +5,9 @@ for production use.
 
 Pulse is a small internal customer-feedback inbox for support teams. Sign in, browse
 incoming feedback across email, chat, and app-store channels, open an item to read the
-full message and customer details, resolve or reopen it, and generate a quick AI summary
-of any message. The app also includes assignment routing, priority and due-date fields,
+full message and customer details, resolve or reopen it, generate a quick AI summary,
+and request AI-assisted next steps for a human agent to review. The app also includes
+assignment routing, priority and due-date fields,
 customer profile history, internal notes, a small metrics panel, search, and CSV export.
 
 ## Requirements
@@ -49,10 +50,15 @@ customer profile history, internal notes, a small metrics panel, search, and CSV
 
 Open the web app in your browser and sign in.
 
-## Test login
+## Test logins
 
-- **Email:** `alice@pulse.test`
-- **Password:** `password123`
+- Support agent: `alice@pulse.test` / `PulseAgent2026!`
+- Manager: `ben@pulse.test` / `PulseManager2026!`
+
+Agents can claim unassigned feedback and update items assigned to them. Managers can work across
+the inbox, reassign ownership, review escalations, merge customers, and delete feedback. These
+rules are enforced by the API; the frontend uses the returned permission matrix to show the
+appropriate controls.
 
 ## Project layout
 
@@ -66,4 +72,15 @@ To use a real model for the Summarize feature, set the following in `server/.env
 ```bash
 FAKE_LLM=false
 OPENAI_API_KEY=sk-...
+OPENAI_TRIAGE_MODEL=gpt-4o-mini
+OPENAI_SUMMARY_MODEL=gpt-4o-mini
+OPENAI_ASSIST_MODEL=gpt-4o-mini
+```
+
+## Verification
+
+Run the production checks for both workspaces:
+
+```bash
+npm run build
 ```
