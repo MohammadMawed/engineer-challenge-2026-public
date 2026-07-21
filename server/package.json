@@ -5,15 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "seed": "tsx src/seed.ts",
+    "seed": "tsx src/database/seed.ts",
+    "backup": "tsx src/database/backup.ts",
     "build": "tsc"
   },
   "dependencies": {
-    "better-sqlite3": "^11.8.1",
+    "better-sqlite3": "^12.11.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "openai": "^4.104.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",

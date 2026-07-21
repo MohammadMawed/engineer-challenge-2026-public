@@ -1,58 +1,15 @@
 import { db } from './db'
-
-db.exec(`
-  DROP TABLE IF EXISTS feedback_notes;
-  DROP TABLE IF EXISTS feedback;
-  DROP TABLE IF EXISTS customers;
-  DROP TABLE IF EXISTS users;
-
-  CREATE TABLE users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT NOT NULL UNIQUE,
-    password TEXT NOT NULL,
-    name TEXT NOT NULL,
-    role TEXT NOT NULL
-  );
-
-  CREATE TABLE customers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    email TEXT NOT NULL,
-    plan TEXT NOT NULL,
-    health_score INTEGER NOT NULL
-  );
-
-  CREATE TABLE feedback (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    customer_id INTEGER NOT NULL,
-    channel TEXT NOT NULL,
-    message TEXT NOT NULL,
-    status TEXT NOT NULL,
-    priority TEXT NOT NULL,
-    assignee_id INTEGER,
-    due_at TEXT,
-    created_at TEXT NOT NULL
-  );
-
-  CREATE TABLE feedback_notes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    feedback_id INTEGER NOT NULL,
-    author_id INTEGER NOT NULL,
-    body TEXT NOT NULL,
-    is_private INTEGER NOT NULL,
-    created_at TEXT NOT NULL
-  );
-`)
+import { hashPassword } from '../services/password.service'
 
 const users = [
-  { email: 'alice@pulse.test', password: 'password123', name: 'Alice Martin', role: 'agent' },
-  { email: 'ben@pulse.test', password: 'support42', name: 'Ben Carter', role: 'manager' },
-  { email: 'chloe@pulse.test', password: 'welcome1', name: 'Chloe Nguyen', role: 'agent' },
+  { email: 'alice@pulse.test', password: 'PulseAgent2026!', name: 'Alice Martin', role: 'agent' },
+  { email: 'ben@pulse.test', password: 'PulseManager2026!', name: 'Ben Carter', role: 'manager' },
+  { email: 'chloe@pulse.test', password: 'PulseChloe2026!', name: 'Chloe Nguyen', role: 'agent' },
 ]
 
 const insertUser = db.prepare('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)')
-for (const u of users) {
-  insertUser.run(u.email, u.password, u.name, u.role)
+if ((db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number }).count === 0) {
+  for (const u of users) insertUser.run(u.email, hashPassword(u.password), u.name, u.role)
 }
 
 const customers = [
@@ -76,8 +33,8 @@ const customers = [
 const insertCustomer = db.prepare(
   'INSERT INTO customers (name, email, plan, health_score) VALUES (?, ?, ?, ?)'
 )
-for (const c of customers) {
-  insertCustomer.run(c.name, c.email, c.plan, c.health_score)
+if ((db.prepare('SELECT COUNT(*) as count FROM customers').get() as { count: number }).count === 0) {
+  for (const c of customers) insertCustomer.run(c.name, c.email, c.plan, c.health_score)
 }
 
 const messages = [
@@ -126,16 +83,18 @@ const now = Date.now()
 const hour = 60 * 60 * 1000
 const day = 24 * hour
 
-for (let i = 0; i < 80; i++) {
-  const customerId = (i % customers.length) + 1
-  const channel = channels[i % channels.length]
-  const message = messages[i % messages.length]
-  const status = i % 10 < 3 ? 'resolved' : 'open'
-  const priority = priorities[i % priorities.length]
-  const assigneeId = (i % users.length) + 1
-  const dueAt = new Date(now + ((i % 9) - 3) * day).toISOString()
-  const createdAt = new Date(now - i * 18 * hour - (i % 7) * hour).toISOString()
-  insertFeedback.run(customerId, channel, message, status, priority, assigneeId, dueAt, createdAt)
+if ((db.prepare('SELECT COUNT(*) as count FROM feedback').get() as { count: number }).count === 0) {
+  for (let i = 0; i < 80; i++) {
+    const customerId = (i % customers.length) + 1
+    const channel = channels[i % channels.length]
+    const message = messages[i % messages.length]
+    const status = i % 10 < 3 ? 'resolved' : 'open'
+    const priority = priorities[i % priorities.length]
+    const assigneeId = (i % users.length) + 1
+    const dueAt = new Date(now + ((i % 9) - 3) * day).toISOString()
+    const createdAt = new Date(now - i * 18 * hour - (i % 7) * hour).toISOString()
+    insertFeedback.run(customerId, channel, message, status, priority, assigneeId, dueAt, createdAt)
+  }
 }
 
 const notes = [
@@ -168,17 +127,19 @@ const notes = [
 const insertNote = db.prepare(
   'INSERT INTO feedback_notes (feedback_id, author_id, body, is_private, created_at) VALUES (?, ?, ?, ?, ?)'
 )
-for (let i = 0; i < notes.length; i++) {
-  const note = notes[i]
-  insertNote.run(
-    note.feedback_id,
-    note.author_id,
-    note.body,
-    note.is_private,
-    new Date(now - (i + 1) * 3 * hour).toISOString()
-  )
+if ((db.prepare('SELECT COUNT(*) as count FROM feedback_notes').get() as { count: number }).count === 0) {
+  for (let i = 0; i < notes.length; i++) {
+    const note = notes[i]
+    insertNote.run(
+      note.feedback_id,
+      note.author_id,
+      note.body,
+      note.is_private,
+      new Date(now - (i + 1) * 3 * hour).toISOString()
+    )
+  }
 }
 
 console.log(
-  `Seeded ${users.length} users, ${customers.length} customers, 80 feedback items, and ${notes.length} notes.`
+  'Seed complete. Existing application data was preserved.'
 )
