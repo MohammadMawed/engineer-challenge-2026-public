@@ -1,11 +1,17 @@
-import { useEffect, useState } from 'react'
-import { exportFeedbackUrl, fetchInbox, fetchMetrics, toggleResolve } from '../api'
-import { FeedbackItem, Metrics } from '../types'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  exportFeedbackUrl,
+  createFeedback,
+  fetchInbox,
+  fetchMetrics,
+  setFeedbackStatus,
+} from '../api'
+import { FeedbackItem, Metrics, User } from '../types'
 import ItemDetail from './ItemDetail'
 
 const PAGE_SIZE = 10
 
-export default function Inbox({ token }: { token: string }) {
+export default function Inbox({ user }: { user: User }) {
   const [items, setItems] = useState<FeedbackItem[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -13,37 +19,63 @@ export default function Inbox({ token }: { token: string }) {
   const [search, setSearch] = useState('')
   const [metrics, setMetrics] = useState<Metrics | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [error, setError] = useState('')
+  const latestRequest = useRef(0)
 
-  const load = async () => {
-    const data = await fetchInbox(page, filter, search, token)
-    setItems(data.items)
-    setTotal(data.total)
-  }
+  const load = useCallback(async () => {
+    const requestId = ++latestRequest.current
+    try {
+      const data = await fetchInbox(page, filter, search)
+      if (requestId !== latestRequest.current) return
+      setItems(Array.isArray(data.items) ? data.items : [])
+      setTotal(Number.isFinite(data.total) ? data.total : 0)
+      setError('')
+    } catch (err) {
+      if (requestId === latestRequest.current && (err as Error).message !== 'Session expired') {
+        setError('Could not load feedback. Please try again.')
+      }
+    }
+  }, [filter, page, search])
+
+  const loadMetrics = useCallback(() => {
+    fetchMetrics().then(setMetrics).catch(() => setMetrics(null))
+  }, [])
 
   useEffect(() => {
-    load()
-  }, [page, filter, search])
+    void load()
+  }, [load])
 
   useEffect(() => {
-    fetchMetrics(token).then(setMetrics)
-  }, [token])
+    loadMetrics()
+  }, [loadMetrics])
 
   useEffect(() => {
-    const interval = setInterval(async () => {
-      const data = await fetchInbox(page, filter, search, token)
-      const merged = data.items.map((incoming) => {
-        const local = items.find((it) => it.id === incoming.id)
-        return local ? { ...incoming, status: local.status } : incoming
-      })
-      setItems(merged)
+    const interval = setInterval(() => {
+      void load()
+      loadMetrics()
     }, 45000)
     return () => clearInterval(interval)
-  }, [])
+  }, [load, loadMetrics])
 
   const onResolve = async (item: FeedbackItem) => {
     const nextStatus = item.status === 'open' ? 'resolved' : 'open'
     setItems(items.map((it) => (it.id === item.id ? { ...it, status: nextStatus } : it)))
-    await toggleResolve(item.id, token)
+    try {
+      await setFeedbackStatus(item.id, nextStatus)
+      loadMetrics()
+    } catch {
+      setItems((current) => current.map((it) => (it.id === item.id ? item : it)))
+    }
+  }
+
+  const onCreate = async () => {
+    const customerId = Number(window.prompt('Customer ID'))
+    const message = window.prompt('Feedback message')
+    if (!Number.isInteger(customerId) || !message?.trim()) return
+    await createFeedback({ customer_id: customerId, channel: 'email', message, category: 'other', tags: [] })
+    setPage(1)
+    await load()
+    loadMetrics()
   }
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -52,10 +84,13 @@ export default function Inbox({ token }: { token: string }) {
     return (
       <ItemDetail
         id={selectedId}
-        token={token}
+        user={user}
+        onSelectFeedback={setSelectedId}
+        onDeleted={() => { setSelectedId(null); void load(); loadMetrics() }}
         onBack={() => {
           setSelectedId(null)
-          load()
+          void load()
+          loadMetrics()
         }}
       />
     )
@@ -63,6 +98,7 @@ export default function Inbox({ token }: { token: string }) {
 
   return (
     <div className="inbox">
+      {error && <div className="error-state"><span>{error}</span><button onClick={() => void load()}>Retry</button></div>}
       {metrics && (
         <div className="metrics-strip">
           <div>
@@ -110,11 +146,12 @@ export default function Inbox({ token }: { token: string }) {
         <button
           className="export-button"
           onClick={() => {
-            window.location.href = exportFeedbackUrl(filter, search, token)
+            window.location.href = exportFeedbackUrl(filter, search)
           }}
         >
           Export CSV
         </button>
+        <button className="export-button" onClick={onCreate}>New feedback</button>
       </div>
 
       <table className="feedback-table">
@@ -139,6 +176,7 @@ export default function Inbox({ token }: { token: string }) {
               </td>
               <td>
                 <span className={'priority ' + item.priority}>{item.priority}</span>
+                {item.priority_source === 'ai' && <span className="ai-label">AI</span>}
               </td>
               <td className="preview">
                 {item.message.slice(0, 70)}
@@ -150,15 +188,17 @@ export default function Inbox({ token }: { token: string }) {
               </td>
               <td>{item.due_at ? new Date(item.due_at).toLocaleDateString() : 'Someday'}</td>
               <td>
-                <button
-                  className="link-button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onResolve(item)
-                  }}
-                >
-                  {item.status === 'open' ? 'Resolve' : 'Reopen'}
-                </button>
+                {item.permissions.can_change_status ? (
+                  <button
+                    className="link-button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onResolve(item)
+                    }}
+                  >
+                    {item.status === 'open' ? 'Resolve' : 'Reopen'}
+                  </button>
+                ) : <span className="read-only-label">View only</span>}
               </td>
             </tr>
           ))}
