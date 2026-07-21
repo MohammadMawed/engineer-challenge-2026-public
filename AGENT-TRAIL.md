@@ -10,7 +10,6 @@ reading, builds, database inspection, and live API requests.
 - “Clean the server structure and split the entry point into folders.”
 - “Check the CRUD workflow, activity, duplicates, escalation, and customer history.”
 - “Solve the login problems and separate manager controls from agent controls.”
-- “Make the frontend responsive and prepare the final handoff files.”
 
 ## Where I corrected the agent
 
